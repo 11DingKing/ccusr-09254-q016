@@ -138,3 +138,112 @@ class DiffOut(BaseModel):
     new_event_cutoff_id: str | None
     student_changes: list[dict[str, Any]]
     students_affected: int
+
+
+# --- 公开摘要：目录、隐私规则、预览/审批/发布/撤回/公开查询 -----------------
+
+
+class DirectoryEntryIn(BaseModel):
+    student_id: str = Field(..., min_length=1, max_length=128)
+    organization: str = Field(..., min_length=1, max_length=128)
+    category: str = Field(..., min_length=1, max_length=128)
+
+
+class DirectoryUpsertIn(BaseModel):
+    entries: list[DirectoryEntryIn]
+
+
+class DirectoryUpsertOut(BaseModel):
+    plan_version: str
+    upserted: int
+
+
+class DirectoryEntryOut(BaseModel):
+    student_id: str
+    organization: str
+    category: str
+
+
+class PrivacyRuleIn(BaseModel):
+    rule_version: str = Field(..., min_length=1, max_length=128)
+    min_group_size: int = Field(..., ge=1)
+    note: str = Field("", max_length=512)
+
+
+class PrivacyRuleOut(BaseModel):
+    rule_version: str
+    min_group_size: int
+    note: str
+    created_by: str
+    created_at: str
+
+
+class SummaryPreviewIn(BaseModel):
+    rule_version: str = Field(..., min_length=1, max_length=128)
+
+
+class SummaryCreateIn(BaseModel):
+    summary_id: str = Field(..., min_length=1, max_length=128)
+    rule_version: str = Field(..., min_length=1, max_length=128)
+
+
+class SummaryActionIn(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=512)
+
+
+class SummaryPreviewOut(BaseModel):
+    plan_version: str
+    freeze_id: str
+    rule_version: str
+    content_hash: str
+    min_group_size: int
+    cells: list[dict[str, Any]]
+    organization_totals: list[dict[str, Any]]
+    grand_total: dict[str, Any]
+    privacy_impact: dict[str, Any]
+
+
+class SummaryAuditOut(BaseModel):
+    sequence: int
+    action: str
+    actor_id: str
+    from_state: str
+    to_state: str
+    reason: str
+    fingerprint: str
+    created_at: str
+
+
+class SummaryOut(BaseModel):
+    summary_id: str
+    plan_version: str
+    freeze_id: str
+    rule_version: str
+    state: str
+    version: int
+    content_hash: str
+    cells: list[dict[str, Any]]
+    organization_totals: list[dict[str, Any]]
+    grand_total: dict[str, Any]
+    privacy_impact: dict[str, Any]
+    created_by: str
+    created_at: str
+    updated_at: str
+    published_at: str | None
+    withdrawn_at: str | None
+    audit: list[SummaryAuditOut]
+
+
+class PublicSummaryMetaOut(BaseModel):
+    summary_id: str
+    plan_version: str
+    freeze_id: str
+    rule_version: str
+    published_at: str | None
+
+
+class PublicSummaryViewOut(PublicSummaryMetaOut):
+    filters: dict[str, Any]
+    cells: list[dict[str, Any]]
+    organization_totals: list[dict[str, Any]] | None = None
+    grand_total: dict[str, Any] | None = None

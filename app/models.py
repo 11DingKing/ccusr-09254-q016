@@ -69,3 +69,92 @@ class Freeze(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow, server_default=func.now()
     )
+
+
+class PrivacyRuleSet(Base):
+    """公开摘要的隐私规则版本；创建后不可变，升级即新增版本。"""
+
+    __tablename__ = "privacy_rule_sets"
+
+    rule_version: Mapped[str] = mapped_column(String(128), primary_key=True)
+    min_group_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    note: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    created_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("min_group_size >= 1", name="ck_privacy_rules_min_group"),
+    )
+
+
+class StudentDirectoryEntry(Base):
+    """学生到 (组织, 类别) 的映射，供公开摘要聚合使用。"""
+
+    __tablename__ = "student_directory"
+
+    plan_version: Mapped[str] = mapped_column(String(128), primary_key=True)
+    student_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    organization: Mapped[str] = mapped_column(String(128), nullable=False)
+    category: Mapped[str] = mapped_column(String(128), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, server_default=func.now()
+    )
+
+
+class PublicSummary(Base):
+    """按冻结快照生成的公开摘要；载荷在创建时固化，规则升级不回写。"""
+
+    __tablename__ = "public_summaries"
+
+    summary_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    plan_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    freeze_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    rule_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    privacy_impact: Mapped[dict] = mapped_column(JSON, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, server_default=func.now()
+    )
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    withdrawn_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        Index("ix_public_summaries_freeze", "plan_version", "freeze_id"),
+        Index("ix_public_summaries_state", "state"),
+    )
+
+
+class PublicSummaryAudit(Base):
+    """公开摘要的内部审计轨迹；撤回后仍然保留。"""
+
+    __tablename__ = "public_summary_audit"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    summary_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    from_state: Mapped[str] = mapped_column(String(32), nullable=False)
+    to_state: Mapped[str] = mapped_column(String(32), nullable=False)
+    reason: Mapped[str] = mapped_column(String(512), nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, server_default=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("summary_id", "sequence", name="uq_summary_audit_seq"),
+    )
