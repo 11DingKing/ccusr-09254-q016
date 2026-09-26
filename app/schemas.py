@@ -138,3 +138,106 @@ class DiffOut(BaseModel):
     new_event_cutoff_id: str | None
     student_changes: list[dict[str, Any]]
     students_affected: int
+
+
+class StudentProfileIn(BaseModel):
+    student_id: str = Field(..., min_length=1, max_length=128)
+    organization: str = Field(..., min_length=1, max_length=128)
+    labels: dict[str, str] = Field(default_factory=dict)
+
+
+class StudentProfileBatchIn(BaseModel):
+    profiles: list[StudentProfileIn]
+
+
+class ProfileUpsertResult(BaseModel):
+    accepted: int
+
+
+class SummaryPreviewIn(BaseModel):
+    freeze_id: str = Field(..., min_length=1, max_length=128)
+    summary_id: str = Field(..., min_length=1, max_length=128)
+    category_dimension: str = Field("compliance", min_length=1, max_length=64)
+    min_cell_size: int = Field(5, ge=1, le=10_000)
+    suppression_margin: int = Field(0, ge=0, le=10_000)
+    round_increment: int = Field(1, ge=1, le=1000)
+
+
+class SummarySubmitIn(BaseModel):
+    acknowledged: bool
+    document_fingerprint: str = Field(..., min_length=1, max_length=96)
+
+
+class SummaryApprovalIn(BaseModel):
+    note: str = Field("", max_length=512)
+
+
+class SummaryWithdrawIn(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=512)
+
+
+class AuditEntryOut(BaseModel):
+    sequence: int
+    action: str
+    actor_id: str
+    occurred_at: str
+    detail: dict[str, Any] = Field(default_factory=dict)
+    fingerprint: str
+
+
+class PublicSummaryOut(BaseModel):
+    """内部视图：含状态、隐私影响评估与审计链。"""
+
+    plan_version: str
+    freeze_id: str
+    summary_id: str
+    state: str
+    category_dimension: str
+    ruleset_version: str
+    privacy_rules: dict[str, Any]
+    document: dict[str, Any]
+    privacy_impact: dict[str, Any]
+    document_fingerprint: str
+    created_by: str
+    created_at: str
+    submitted_by: str | None
+    submitted_at: str | None
+    approved_by: str | None
+    approved_at: str | None
+    published_by: str | None
+    published_at: str | None
+    withdrawn_by: str | None
+    withdrawn_at: str | None
+    withdrawal_reason: str | None
+    audit_log: list[AuditEntryOut]
+
+
+class PublicSummaryListItem(BaseModel):
+    plan_version: str
+    freeze_id: str
+    summary_id: str
+    state: str
+    category_dimension: str
+    ruleset_version: str
+    document_fingerprint: str
+    created_at: str
+    published_at: str | None
+    withdrawn_at: str | None
+
+
+class PublicDocumentOut(BaseModel):
+    """对外视图：只含已发布文档本身，无任何内部字段。"""
+
+    plan_version: str
+    freeze_id: str
+    ruleset_version: str
+    rules: dict[str, Any]
+    category_dimension: str
+    coverage: str
+    suppression_applied: bool
+    organizations: list[dict[str, Any]]
+    totals: dict[str, Any] | None
+    filters: dict[str, Any] | None
+    document_fingerprint: str
+    published_at: str | None = None
+    summary_id: str | None = None

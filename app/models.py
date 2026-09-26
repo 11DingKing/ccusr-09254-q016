@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -68,4 +69,90 @@ class Freeze(Base):
     event_cutoff_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow, server_default=func.now()
+    )
+
+
+class StudentProfile(Base):
+    """学生的组织归属与公开类别标签（内部数据，不对外公开）。"""
+
+    __tablename__ = "student_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    plan_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    student_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    organization: Mapped[str] = mapped_column(String(128), nullable=False)
+    labels: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "plan_version", "student_id", name="uq_student_profiles_plan_student"
+        ),
+        Index("ix_student_profiles_plan_org", "plan_version", "organization"),
+    )
+
+
+class PublicSummary(Base):
+    """冻结快照的公开聚合摘要：预览 → 审批 → 发布 → 撤回。"""
+
+    __tablename__ = "public_summaries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    plan_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    freeze_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    summary_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False, default="preview")
+    category_dimension: Mapped[str] = mapped_column(String(64), nullable=False)
+    ruleset_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    privacy_rules: Mapped[dict] = mapped_column(JSON, nullable=False)
+    document: Mapped[dict] = mapped_column(JSON, nullable=False)
+    privacy_impact: Mapped[dict] = mapped_column(JSON, nullable=False)
+    document_fingerprint: Mapped[str] = mapped_column(String(96), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, server_default=func.now()
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    submitted_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    approved_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    approval_note: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    published_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    withdrawn_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    withdrawn_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    withdrawal_reason: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    audit_log: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "plan_version", "summary_id", name="uq_public_summaries_plan_summary"
+        ),
+        # 同一冻结快照至多存在一个已发布摘要（历史版本以 withdrawn 留存审计）。
+        Index(
+            "ux_public_summaries_one_published",
+            "plan_version",
+            "freeze_id",
+            unique=True,
+            sqlite_where=text("state = 'published'"),
+        ),
+        Index(
+            "ix_public_summaries_plan_freeze",
+            "plan_version",
+            "freeze_id",
+            "state",
+        ),
     )

@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from .routers import router
+from .routers_public import internal_router, public_router
 
 app = FastAPI(
     title="Practice Hours Guard",
@@ -17,6 +18,8 @@ app = FastAPI(
 )
 
 app.include_router(router)
+app.include_router(internal_router)
+app.include_router(public_router)
 
 
 @app.get("/health", tags=["meta"])
